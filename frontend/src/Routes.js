@@ -9,6 +9,7 @@ import LandingPage from "views/LandingPage/LandingPage.jsx";
 import AboutUs from "views/AboutUs/AboutUs.jsx";
 import Signup from "views/Signup/Signup.jsx";
 import ProfilePage from "views/ProfilePage/ProfilePage.jsx";
+import VideoPage from "views/VideoPage/VideoPage.jsx";
 import LoginPage from "views/LoginPage/LoginPage.jsx";
 import NotFound from "views/NotFound/NotFound";
 
@@ -20,5 +21,6 @@ export default ({childProps}) =>
     <UnauthenticatedRoute path="/login-page" exact component={LoginPage} props={childProps} />
     <UnauthenticatedRoute path="/signup" exact component={Signup} props={childProps} />
     <AuthenticatedRoute path="/profile/:id" exact component={ProfilePage} props={childProps} />
+    <AuthenticatedRoute path="/video" exact component={VideoPage} props={childProps} />
     <Route component={NotFound} />
   </Switch>;

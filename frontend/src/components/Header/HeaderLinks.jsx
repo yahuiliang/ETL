@@ -4,7 +4,7 @@ import withStyles from "@material-ui/core/styles/withStyles";
 import List from "@material-ui/core/List";
 import ListItem from "@material-ui/core/ListItem";
 import Tooltip from "@material-ui/core/Tooltip";
-import { Create, Business, LockOpen, FindInPage } from "@material-ui/icons";
+import { Create, Business, LockOpen, FindInPage, Videocam } from "@material-ui/icons";
 
 import Button from "components/CustomButtons/Button.jsx";
 import headerLinksStyle from "assets/jss/material-kit-react/components/headerLinksStyle.jsx";
@@ -74,6 +74,18 @@ class HeaderLinks extends Component {
             </Fragment>
           }
 
+        </ListItem>
+
+        <ListItem className={classes.listItem}>
+          <Button
+            color="transparent"
+            target="_blank"
+            className={classes.navLink}
+          >
+            <Link className={classes.link} to="/video">
+              <Videocam className={classes.icons} /> Video
+            </Link>
+          </Button>
         </ListItem>
 
         <ListItem className={classes.listItem}>
