@@ -4,7 +4,7 @@ import { withStyles } from '@material-ui/core/styles';
 import Card from '@material-ui/core/Card';
 import CardContent from '@material-ui/core/CardContent';
 import Typography from '@material-ui/core/Typography';
-import Camera from "models/Camera.jsx";
+import Media from "models/Media.jsx";
 import Button from '@material-ui/core/Button';
 
 const styles = theme => ({
@@ -35,16 +35,26 @@ const styles = theme => ({
 });
 
 class VideoPanel extends Component {
+  constructor() {
+    super();
+    this.state = {
+      call: false,
+      hangup: true
+    };
+  }
+
   componentDidMount() {
     // Video element where stream will be placed.
-    const localVideo = document.querySelector('video');
-    this.camera = new Camera(localVideo);
-    this.camera.startStreaming();
+    const localVideo = document.getElementById('local');
+    const remoteVideo = document.getElementById('remote');
+    this.media = new Media(localVideo, remoteVideo);
+    this.media.startStreaming();
   }
 
   componentWillUnmount() {
     // Implement the code here to release resources used by the camera
-    this.camera.stopStreaming();
+    this.media.stopStreaming();
+    this.media.hangupAction();
   }
 
   render() {
@@ -62,14 +72,23 @@ class VideoPanel extends Component {
           </Typography>
             </CardContent>
             <div className={classes.controls}>
-              <Button>Stop</Button>
-              <Button>Start</Button>
-              <Button>Call</Button>
-              <Button>Hang Up</Button>
+              <Button disabled={this.state.call} onClick={() => {
+                this.setState({call: true});
+                this.setState({hangup: false});
+                this.media.setupPeerConnections();
+              }}>Call</Button>
+              <Button disabled={this.state.hangup} onClick={() => {
+                this.setState({call: false});
+                this.setState({hangup: true});
+                this.media.hangupAction();
+              }}>Hang Up</Button>
             </div>
           </div>
           <div style={{ width: "100%" }}>
-            <video autoPlay playsInline style={{ width: "100%", height: "100%" }}></video>
+            <video id="local" autoPlay playsInline style={{ width: "100%", height: "100%" }}></video>
+          </div>
+          <div style={{ width: "100%" }}>
+            <video id="remote" autoPlay playsInline style={{ width: "100%", height: "100%" }}></video>
           </div>
         </Card>
       </div>
