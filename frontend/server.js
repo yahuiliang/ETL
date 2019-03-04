@@ -1,6 +1,5 @@
 'use strict';
 
-var os = require('os');
 var http = require('http');
 var socketIO = require('socket.io');
 
@@ -17,7 +16,7 @@ io.sockets.on('connection', function (socket) {
   }
 
   socket.on('message', function (message) {
-    console.log('Client said: ', message);
+    log('Client said: ', message);
     // for a real app, would be room-only (not broadcast)
     socket.broadcast.emit('message', message);
   });
