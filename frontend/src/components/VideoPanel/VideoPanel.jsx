@@ -106,6 +106,9 @@ class VideoPanel extends Component {
       console.log("received hangup signal");
       this.hangup();
       this.setState({ stopDisable: true });
+      if (this.props.role === "teacher") {
+        this.setState({ startDisable: false });
+      }
     });
 
     // This indicates that the client receives the message from the server
