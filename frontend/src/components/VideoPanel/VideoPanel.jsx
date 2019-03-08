@@ -64,11 +64,11 @@ class VideoPanel extends Component {
     this.localVideo = document.getElementById('local');
     this.remoteVideo = document.getElementById('remote');
 
-    if (window.location.hostname !== 'localhost') {
-      this.requestTurn(
-        'https://computeengineondemand.appspot.com/turn?username=41784574&key=4080218913'
-      );
-    }
+    // if (window.location.hostname !== 'localhost') {
+    //   this.requestTurn(
+    //     'https://computeengineondemand.appspot.com/turn?username=41784574&key=4080218913'
+    //   );
+    // }
 
     // Connect to the server in this case
     this.socket = io.connect("localhost:8080");
@@ -105,6 +105,7 @@ class VideoPanel extends Component {
     this.socket.on('hangup', () => {
       console.log("received hangup signal");
       this.hangup();
+      this.setState({ stopDisable: true });
     });
 
     // This indicates that the client receives the message from the server
@@ -122,6 +123,7 @@ class VideoPanel extends Component {
             candidate: message.candidate
           });
           this.pc.addIceCandidate(candidate);
+          this.sendMessage('candidate added');
           this.setState({ stopDisable: false });
         }
       } else if (this.props.role === "student") {
@@ -130,6 +132,8 @@ class VideoPanel extends Component {
           this.createPeerConnection();
           this.pc.setRemoteDescription(new RTCSessionDescription(message));
           this.accept();
+        } else if (message === "candidate added") {
+          this.setState({ stopDisable: false });
         }
       }
     });
@@ -140,8 +144,7 @@ class VideoPanel extends Component {
 
     // Get the video stream
     navigator.mediaDevices.getUserMedia({
-      video: true,
-      // audio: true
+      video: true
     })
       .then((stream) => {
         console.log('Adding local stream.');
