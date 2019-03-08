@@ -61,12 +61,7 @@ class VideoPage extends Component {
                   </div>
                 </GridItem>
               </GridContainer>
-
-              <GridContainer justify="center">
-                <GridItem xs={12} sm={12} md={8} className={classes.navWrapper}>
-                  <VideoPanel />
-                </GridItem>
-              </GridContainer>
+              <VideoPanel username={this.state.user.firstName} role={this.state.user.role} />
             </div>
           </div>
         </div>

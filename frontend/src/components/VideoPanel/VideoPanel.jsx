@@ -6,6 +6,7 @@ import CardContent from '@material-ui/core/CardContent';
 import Typography from '@material-ui/core/Typography';
 import io from 'socket.io-client';
 import Button from '@material-ui/core/Button';
+import VideoDisplayArea from './VideoDisplayArea/VideoDisplayArea.jsx';
 
 const styles = theme => ({
   card: {
@@ -27,11 +28,7 @@ const styles = theme => ({
     alignItems: 'center',
     paddingLeft: theme.spacing.unit,
     paddingBottom: theme.spacing.unit,
-  },
-  playIcon: {
-    height: 38,
-    width: 38,
-  },
+  }
 });
 
 var pcConfig = {
@@ -40,28 +37,15 @@ var pcConfig = {
   }]
 };
 
-// Set up audio and video regardless of what devices are present.
-var sdpConstraints = {
-  offerToReceiveAudio: true,
-  offerToReceiveVideo: true
-};
-
-var constraints = {
-  video: true
-};
-
 class VideoPanel extends Component {
-  constructor() {
-    super();
+  constructor(props) {
+    super(props);
 
     this.state = {
-      call: false,
-      hangup: true
+      startDisable: false,
+      stopDisable: true
     };
 
-    this.isChannelReady = false;
-    this.isInitiator = false;
-    this.isStarted = false;
     this.localStream = undefined;
     this.pc = undefined;
     this.remoteStream = undefined;
@@ -70,7 +54,6 @@ class VideoPanel extends Component {
     this.room = 'foo';
 
     this.sendMessage = this.sendMessage.bind(this);
-    this.maybeStart = this.maybeStart.bind(this);
     this.handleIceCandidate = this.handleIceCandidate.bind(this);
     this.setLocalAndSendMessage = this.setLocalAndSendMessage.bind(this);
     this.hangup = this.hangup.bind(this);
@@ -81,109 +64,159 @@ class VideoPanel extends Component {
     this.localVideo = document.getElementById('local');
     this.remoteVideo = document.getElementById('remote');
 
-    this.socket = io.connect("localhost:8080");
-
-    if (this.room !== '') {
-      this.socket.emit('create or join', this.room);
-      console.log('Attempted to create or  join room', this.room);
-    }
-
-    this.socket.on('created', (room) => {
-      console.log('Created room ' + room);
-      this.isInitiator = true;
-    });
-
-    this.socket.on('full', (room) => {
-      console.log('Room ' + room + ' is full');
-    });
-
-    this.socket.on('join', (room) => {
-      console.log('Another peer made a request to join room ' + room);
-      console.log('This peer is the initiator of room ' + room + '!');
-      this.isChannelReady = true;
-    });
-
-    this.socket.on('joined', (room) => {
-      console.log('joined: ' + room);
-      this.isChannelReady = true;
-    });
-
-    this.socket.on('log', (array) => {
-      console.log.apply(console, array);
-    });
-
-    // This client receives a message
-    this.socket.on('message', (message) => {
-      console.log('Client received message:', message);
-      if (message === 'got user media') {
-        this.maybeStart();
-      } else if (message.type === 'offer') {
-        if (!this.isInitiator && !this.isStarted) {
-          this.maybeStart();
-        }
-        this.pc.setRemoteDescription(new RTCSessionDescription(message));
-        this.doAnswer();
-      } else if (message.type === 'answer' && this.isStarted) {
-        this.pc.setRemoteDescription(new RTCSessionDescription(message));
-      } else if (message.type === 'candidate' && this.isStarted) {
-        var candidate = new RTCIceCandidate({
-          sdpMLineIndex: message.label,
-          candidate: message.candidate
-        });
-        this.pc.addIceCandidate(candidate);
-      } else if (message === 'bye' && this.isStarted) {
-        this.handleRemoteHangup();
-      }
-    });
-
-    // Get the video stream
-    navigator.mediaDevices.getUserMedia({
-      video: true
-    })
-      .then((stream) => {
-        console.log('Adding local stream.');
-        this.localStream = stream;
-        this.localVideo.srcObject = this.localStream;
-        this.sendMessage('got user media');
-        if (this.isInitiator) {
-          this.maybeStart();
-        }
-      })
-      .catch((e) => {
-        alert('getUserMedia() error: ' + e.name);
-      });
-
-    console.log('Getting user media with constraints', constraints);
-
     if (window.location.hostname !== 'localhost') {
       this.requestTurn(
         'https://computeengineondemand.appspot.com/turn?username=41784574&key=4080218913'
       );
     }
+
+    // Connect to the server in this case
+    this.socket = io.connect("localhost:8080");
+
+    // Setup up listeners for server responses
+
+    // This indicates that the room has been created
+    this.socket.on('created', (room) => {
+      console.log('Created room ' + room);
+    });
+
+    // This indicates that the room is full
+    this.socket.on('full', (room) => {
+      console.log('Room ' + room + ' is full');
+    });
+
+    // This indicates that the another peer tries to join the room that you created
+    this.socket.on('join', (room) => {
+      console.log('Another peer made a request to join room ' + room);
+      console.log('This peer is the initiator of room ' + room + '!');
+    });
+
+    // This indicates that you have joined the room
+    this.socket.on('joined', (room) => {
+      console.log('joined: ' + room);
+    });
+
+    // Simply log the informaiton sent from the server
+    this.socket.on('log', (array) => {
+      console.log.apply(console, array);
+    });
+
+    // Hangup the call since the other peer made this request
+    this.socket.on('hangup', () => {
+      console.log("received hangup signal");
+      this.hangup();
+    });
+
+    // This indicates that the client receives the message from the server
+    this.socket.on('message', (message) => {
+      if (this.props.role === "teacher") {
+        // For teachers, they only send offers and accept anwsers from students
+        if (message.type === 'answer') {
+          // This is the message sent from the other peer
+          // Set their meta data to the connection
+          this.pc.setRemoteDescription(new RTCSessionDescription(message));
+        } else if (message.type === 'candidate') {
+          // The protocal which allows me to connect to peers and exchange media data
+          let candidate = new RTCIceCandidate({
+            sdpMLineIndex: message.label,
+            candidate: message.candidate
+          });
+          this.pc.addIceCandidate(candidate);
+          this.setState({ stopDisable: false });
+        }
+      } else if (this.props.role === "student") {
+        // For students, they only send anwsers for teacher's offers
+        if (message.type === 'offer') {
+          this.createPeerConnection();
+          this.pc.setRemoteDescription(new RTCSessionDescription(message));
+          this.accept();
+        }
+      }
+    });
+
+    this.createOrJoinRoom();
+
+    console.log('Getting user media with constraints');
+
+    // Get the video stream
+    navigator.mediaDevices.getUserMedia({
+      video: true,
+      // audio: true
+    })
+      .then((stream) => {
+        console.log('Adding local stream.');
+
+        this.localStream = stream;
+        this.localVideo.srcObject = this.localStream;
+        this.setState({ call: false });
+      })
+      .catch((e) => {
+        alert('getUserMedia() error: ' + e.name);
+      });
   }
 
   componentWillUnmount() {
-    this.sendMessage('bye');
+    this.socket.emit('hangup');
+    this.hangup();
+    // Close the camera
+    this.localStream.getVideoTracks()[0].stop();
+    // Leave the room
+    this.socket.emit('leave');
+  }
+
+  // The method can be called when users are matched and confirmed to be connected with each other
+  createOrJoinRoom() {
+    // Create or join the chatting room
+    if (this.room !== '') {
+      this.socket.emit('create or join', this.room);
+      console.log('Attempted to create or join room', this.room);
+    }
+  }
+
+  offer() {
+    // Starts calling other peers
+    this.createPeerConnection();
+    this.pc.createOffer(this.setLocalAndSendMessage, this.handleCreateOfferError);
+  }
+
+  accept() {
+    console.log('Sending answer to peer.');
+    this.pc.createAnswer().then(
+      this.setLocalAndSendMessage,
+      this.onCreateSessionDescriptionError
+    );
+  }
+
+  hangup() {
+    console.log('Hanging up.');
+    if (this.pc) {
+      this.pc.removeTrack(this.videoTrack);
+      // Stop the peer connection
+      this.pc.close();
+    }
+    this.pc = null;
   }
 
   sendMessage(message) {
-    console.log('Client sending message: ', message);
+    console.log('Message from client: ', message);
     this.socket.emit('message', message);
   }
 
-  maybeStart() {
-    console.log('>>>>>>> maybeStart() ', this.isStarted, this.localStream, this.isChannelReady);
-    if (!this.isStarted && typeof this.localStream !== 'undefined' && this.isChannelReady) {
-      console.log('>>>>>> creating peer connection');
-      this.createPeerConnection();
-      this.pc.addStream(this.localStream);
-      this.isStarted = true;
-      console.log('isInitiator', this.isInitiator);
-      if (this.isInitiator) {
-        // doCall
-        console.log('Sending offer to peer');
-        this.pc.createOffer(this.setLocalAndSendMessage, this.handleCreateOfferError);
-      }
+  createPeerConnection() {
+    try {
+      this.pc = new RTCPeerConnection(pcConfig);
+
+      this.pc.onicecandidate = this.handleIceCandidate;
+      this.pc.onaddstream = this.handleRemoteStreamAdded;
+
+      // Attach local media to the peer connection
+      this.videoTrack = this.pc.addTrack(this.localStream.getTracks()[0], this.localStream);
+      // this.audioTrack = this.pc.addTrack(this.localStream.getTracks()[1], this.localStream);
+      console.log('Created RTCPeerConnnection');
+    } catch (e) {
+      console.log('Failed to create PeerConnection, exception: ' + e.message);
+      alert('Cannot create RTCPeerConnection object.');
+      return;
     }
   }
 
@@ -197,22 +230,7 @@ class VideoPanel extends Component {
     console.log('createOffer() error: ', event);
   }
 
-  createPeerConnection() {
-    try {
-      this.pc = new RTCPeerConnection(null);
-      this.pc.onicecandidate = this.handleIceCandidate;
-      this.pc.onaddstream = this.handleRemoteStreamAdded;
-      this.pc.onremovestream = this.handleRemoteStreamRemoved;
-      console.log('Created RTCPeerConnnection');
-    } catch (e) {
-      console.log('Failed to create PeerConnection, exception: ' + e.message);
-      alert('Cannot create RTCPeerConnection object.');
-      return;
-    }
-  }
-
   handleIceCandidate(event) {
-    console.log('icecandidate event: ', event);
     if (event.candidate) {
       this.sendMessage({
         type: 'candidate',
@@ -227,31 +245,13 @@ class VideoPanel extends Component {
 
   handleRemoteStreamAdded(event) {
     console.log('Remote stream added.');
+
     this.remoteStream = event.stream;
-    console.log(this.remoteVideo);
     this.remoteVideo.srcObject = this.remoteStream;
-  }
-
-  handleRemoteStreamRemoved(event) {
-    console.log('Remote stream removed. Event: ', event);
-  }
-
-  handleRemoteHangup() {
-    console.log('Session terminated.');
-    this.stop();
-    this.isInitiator = false;
   }
 
   onCreateSessionDescriptionError(error) {
     console.trace('Failed to create session description: ' + error.toString());
-  }
-
-  doAnswer() {
-    console.log('Sending answer to peer.');
-    this.pc.createAnswer().then(
-      this.setLocalAndSendMessage,
-      this.onCreateSessionDescriptionError
-    );
   }
 
   requestTurn(turnURL) {
@@ -283,16 +283,45 @@ class VideoPanel extends Component {
     }
   }
 
-  hangup() {
-    console.log('Hanging up.');
-    this.stop();
-    this.sendMessage('bye');
-  }
+  buttonGroup() {
+    if (this.props.role === "teacher") {
+      return (
+        <div>
+          <Button
+            disabled={this.state.startDisable}
+            onClick={() => {
+              this.offer();
+              this.setState({ startDisable: true, stopDisable: false });
+            }}>
+            Start Teaching
+          </Button>
+          <Button
+            disabled={this.state.stopDisable}
+            onClick={() => {
+              this.socket.emit('hangup');
+              this.hangup();
+              this.setState({ startDisable: false, stopDisable: true });
+            }}>
+            Stop Teaching
+          </Button>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <Button
+            disabled={this.state.stopDisable}
+            onClick={() => {
+              this.socket.emit('hangup');
+              this.hangup();
+              this.setState({ stopDisable: true });
+            }}>
+            Stop Learning
+          </Button>
+        </div>
 
-  stop() {
-    this.isStarted = false;
-    this.pc.close();
-    this.pc = null;
+      );
+    }
   }
 
   render() {
@@ -300,33 +329,20 @@ class VideoPanel extends Component {
     return (
       <div style={{ height: 400 }}>
         <Card className={classes.card}>
-          <div className={classes.details}>
+          <div className={classes.details} style={{ width: 300 }}>
             <CardContent className={classes.content}>
               <Typography component="h5" variant="h5">
-                Test Video
-          </Typography>
+                {this.props.role + " video"}
+              </Typography>
               <Typography variant="subtitle1" color="textSecondary">
-                Yahui Liang
-          </Typography>
+                {this.props.username}
+              </Typography>
             </CardContent>
             <div className={classes.controls}>
-              <Button disabled={this.state.call} onClick={() => {
-                // this.setState({ call: true });
-                // this.setState({ hangup: false });
-                this.socket.emit('message', "Hello World");
-              }}>Call</Button>
-              <Button disabled={this.state.hangup} onClick={() => {
-                this.setState({ call: false });
-                this.setState({ hangup: true });
-              }}>Hang Up</Button>
+              {this.buttonGroup()}
             </div>
           </div>
-          <div style={{ width: "100%" }}>
-            <video id="local" autoPlay playsInline style={{ width: "100%", height: "100%" }}></video>
-          </div>
-          <div style={{ width: "100%" }}>
-            <video id="remote" autoPlay playsInline style={{ width: "100%", height: "100%" }}></video>
-          </div>
+          <VideoDisplayArea />
         </Card>
       </div>
     );
