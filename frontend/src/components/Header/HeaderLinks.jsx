@@ -76,17 +76,21 @@ class HeaderLinks extends Component {
 
         </ListItem>
 
-        <ListItem className={classes.listItem}>
-          <Button
-            color="transparent"
-            target="_blank"
-            className={classes.navLink}
-          >
-            <Link className={classes.link} to="/video">
-              <Videocam className={classes.icons} /> Video
-            </Link>
-          </Button>
-        </ListItem>
+        {this.props.isAuthenticated ?
+          <ListItem className={classes.listItem}>
+            <Button
+              color="transparent"
+              target="_blank"
+              className={classes.navLink}
+            >
+              <Link className={classes.link} to="/video">
+                <Videocam className={classes.icons} /> Video
+          </Link>
+            </Button>
+          </ListItem>
+          :
+          null
+        }
 
         <ListItem className={classes.listItem}>
           <Tooltip

@@ -151,7 +151,6 @@ class VideoPanel extends Component {
 
         this.localStream = stream;
         this.localVideo.srcObject = this.localStream;
-        this.setState({ call: false });
       })
       .catch((e) => {
         alert('getUserMedia() error: ' + e.name);
