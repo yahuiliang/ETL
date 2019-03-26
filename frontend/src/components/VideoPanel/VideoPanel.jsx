@@ -71,7 +71,7 @@ class VideoPanel extends Component {
     // }
 
     // Connect to the server in this case
-    this.socket = io.connect("localhost:8080");
+    this.socket = io.connect("http://etl-s.us-west-2.elasticbeanstalk.com/");
 
     // Setup up listeners for server responses
 
